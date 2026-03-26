@@ -41,8 +41,8 @@ def generate_table():
         f"*{len(events)} events scraped from [StartupBos](https://www.startupbos.org/directory/events), "
         "[Luma Boston](https://luma.com/boston), and [Luma AI](https://luma.com/ai).*",
         "",
-        "| Date | Event | Cost | Description | Source |",
-        "|------|-------|------|-------------|--------|",
+        "| Date | Event | Description | Cost | Source |",
+        "|------|-------|-------------|------|--------|",
     ]
 
     for e in events:
@@ -59,7 +59,7 @@ def generate_table():
         else:
             source = source_url
         desc = truncate_desc(e.get("description", "")).replace("|", "\\|").replace("\n", " ")
-        lines.append(f"| {e['date']} | {event_col} | {e['cost']} | {desc} | {source} |")
+        lines.append(f"| {e['date']} | {event_col} | {desc} | {e['cost']} | {source} |")
 
     output = Path("events/EVENTS.md")
     output.parent.mkdir(exist_ok=True)
