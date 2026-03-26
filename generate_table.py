@@ -1,4 +1,4 @@
-"""Generate a markdown table from events.json and write it to EVENTS.md."""
+"""Generate a markdown table from events.json and write it to events/EVENTS.md."""
 
 import json
 from pathlib import Path
@@ -40,9 +40,10 @@ def generate_table():
             source = source_url
         lines.append(f"| {e['date']} | {event_col} | {e['cost']} | {source} |")
 
-    output = Path("EVENTS.md")
+    output = Path("events/EVENTS.md")
+    output.parent.mkdir(exist_ok=True)
     output.write_text("\n".join(lines) + "\n")
-    print(f"Generated EVENTS.md with {len(events)} events")
+    print(f"Generated events/EVENTS.md with {len(events)} events")
 
 
 if __name__ == "__main__":
