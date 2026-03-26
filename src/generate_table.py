@@ -1,6 +1,7 @@
 """Generate a markdown table from events.json and write it to events/EVENTS.md."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 
@@ -14,6 +15,16 @@ def generate_table():
     if not events:
         print("No events found")
         return
+
+    def parse_date(date_str):
+        for fmt in ("%B %d, %Y %I:%M %p", "%B %d, %Y (All Day)", "%B %d, %Y"):
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                continue
+        return datetime.max
+
+    events.sort(key=lambda e: parse_date(e.get("date", "")))
 
     lines = [
         "# Upcoming Boston Startup Events",
