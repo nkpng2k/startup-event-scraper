@@ -27,10 +27,10 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Run scraper
-        run: python scraper.py
+        run: python src/scraper.py
 
       - name: Generate events table
-        run: python generate_table.py
+        run: python src/generate_table.py
 
       - name: Commit and push
         run: |

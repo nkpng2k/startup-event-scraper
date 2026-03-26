@@ -26,18 +26,18 @@ playwright install chromium
 
 ```bash
 # Scrape all sources
-python scraper.py
+python src/scraper.py
 
 # Scrape a specific source
-python scraper.py --scrape startupbos
-python scraper.py --scrape luma-boston
-python scraper.py --scrape luma-ai
+python src/scraper.py --scrape startupbos
+python src/scraper.py --scrape luma-boston
+python src/scraper.py --scrape luma-ai
 
 # Print event summary to stdout
-python scraper.py --print-summary
+python src/scraper.py --print-summary
 
 # Combine flags
-python scraper.py --scrape luma-ai --print-summary
+python src/scraper.py --scrape luma-ai --print-summary
 ```
 
 ### Options
@@ -69,8 +69,12 @@ A formatted markdown table of upcoming events is published to [`events/EVENTS.md
 ## Project Structure
 
 ```
-scraper.py      # Main entrypoint - aggregates, deduplicates, and outputs events
-models.py       # Shared Event dataclass
-startupbos.py   # StartupBos scraper (uses Playwright for JS rendering)
-luma.py         # Luma Boston and Luma AI scrapers (uses public API)
+src/
+  scraper.py        # Main entrypoint - aggregates, deduplicates, and outputs events
+  models.py         # Shared Event dataclass
+  startupbos.py     # StartupBos scraper (uses Playwright for JS rendering)
+  luma.py           # Luma Boston and Luma AI scrapers (uses public API)
+  generate_table.py # Generates events/EVENTS.md from events.json
+events/
+  EVENTS.md         # Auto-generated table of upcoming events
 ```
