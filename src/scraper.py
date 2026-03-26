@@ -6,6 +6,7 @@ Aggregates events from StartupBos, Luma Boston, and Luma AI.
 import argparse
 import json
 from dataclasses import asdict
+from datetime import datetime
 
 from playwright.sync_api import sync_playwright
 
@@ -44,6 +45,12 @@ def parse_args():
         default=False,
         help="Print a summary of scraped events to stdout",
     )
+    parser.add_argument(
+        "--generate",
+        action="store_true",
+        default=False,
+        help="Generate events/EVENTS.md table from scraped data",
+    )
     return parser.parse_args()
 
 
@@ -66,7 +73,15 @@ def main():
 
     # Deduplicate across all sources
     all_events = deduplicate_events(all_events)
-    all_events.sort(key=lambda e: e.date)
+    def parse_date(date_str):
+        for fmt in ("%B %d, %Y %I:%M %p", "%B %d, %Y (All Day)", "%B %d, %Y"):
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                continue
+        return datetime.max
+
+    all_events.sort(key=lambda e: parse_date(e.date))
 
     # Output results
     output = [asdict(e) for e in all_events]
@@ -74,6 +89,10 @@ def main():
     with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
     print(f"\nSaved {len(all_events)} events to {output_file}")
+
+    if args.generate:
+        from generate_table import generate_table
+        generate_table()
 
     if args.print_summary:
         for event in all_events:
