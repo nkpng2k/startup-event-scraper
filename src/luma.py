@@ -10,6 +10,7 @@ from models import Event
 LUMA_BOSTON_URL = "https://luma.com/boston"
 LUMA_AI_URL = "https://luma.com/ai"
 LUMA_API_URL = "https://api.lu.ma/discover/get-paginated-events"
+LUMA_EVENT_API_URL = "https://api.lu.ma/event/get"
 
 BOSTON_LAT = 42.35843
 BOSTON_LNG = -71.05977
@@ -49,6 +50,35 @@ def _fetch_paginated(params: dict, max_pages: int = 10) -> list[dict]:
     return all_entries
 
 
+def _extract_text(node: dict) -> str:
+    """Extract plain text from a ProseMirror/TipTap document node."""
+    if node.get("type") == "text":
+        return node.get("text", "")
+    parts = []
+    for child in node.get("content", []):
+        parts.append(_extract_text(child))
+    if node.get("type") in ("paragraph", "heading", "blockquote"):
+        return " ".join(parts).strip()
+    return " ".join(parts)
+
+
+def _fetch_event_description(event_slug: str) -> str:
+    """Fetch the full event description from the Luma event detail API."""
+    try:
+        data = _api_get(LUMA_EVENT_API_URL, {"event_api_id": event_slug})
+        mirror = data.get("description_mirror")
+        if isinstance(mirror, dict) and "content" in mirror:
+            paragraphs = []
+            for node in mirror["content"]:
+                text = _extract_text(node).strip()
+                if text:
+                    paragraphs.append(text)
+            return "\n".join(paragraphs)
+    except Exception:
+        pass
+    return ""
+
+
 def _format_date(entry: dict) -> str:
     event = entry.get("event", {})
     start = event.get("start_at", "")
@@ -68,8 +98,13 @@ def _entry_to_event(entry: dict, source: str) -> Event:
 
     name = event.get("name", "Untitled Event")
     date = _format_date(entry)
-    reg_link = f"https://lu.ma/{event.get('url', '')}" if event.get("url") else ""
-    description = event.get("description_short", "") or ""
+    event_slug = event.get("url", "")
+    reg_link = f"https://lu.ma/{event_slug}" if event_slug else ""
+    description = ""
+    if event_slug:
+        description = _fetch_event_description(event_slug)
+    if not description:
+        description = event.get("description_short", "") or ""
 
     if ticket.get("is_free"):
         cost = "Free"
