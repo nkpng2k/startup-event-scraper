@@ -1,6 +1,7 @@
 """Generate a markdown table from events.json and write it to events/EVENTS.md."""
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -26,14 +27,22 @@ def generate_table():
 
     events.sort(key=lambda e: parse_date(e.get("date", "")))
 
+    def truncate_desc(desc):
+        if not desc or len(desc) <= 100:
+            return desc
+        match = re.search(r'[.!?]', desc[100:])
+        if match:
+            return desc[:100 + match.end()]
+        return desc[:100] + "..."
+
     lines = [
         "# Upcoming Boston Startup Events",
         "",
         f"*{len(events)} events scraped from [StartupBos](https://www.startupbos.org/directory/events), "
         "[Luma Boston](https://luma.com/boston), and [Luma AI](https://luma.com/ai).*",
         "",
-        "| Date | Event | Cost | Source |",
-        "|------|-------|------|--------|",
+        "| Date | Event | Cost | Description | Source |",
+        "|------|-------|------|-------------|--------|",
     ]
 
     for e in events:
@@ -49,7 +58,8 @@ def generate_table():
             source = "Luma Boston"
         else:
             source = source_url
-        lines.append(f"| {e['date']} | {event_col} | {e['cost']} | {source} |")
+        desc = truncate_desc(e.get("description", "")).replace("|", "\\|").replace("\n", " ")
+        lines.append(f"| {e['date']} | {event_col} | {e['cost']} | {desc} | {source} |")
 
     output = Path("events/EVENTS.md")
     output.parent.mkdir(exist_ok=True)
