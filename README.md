@@ -2,6 +2,10 @@
 
 A Python scraper that aggregates upcoming startup and tech events from Boston-area event websites into a single JSON file.
 
+## [Calendar](events/EVENTS.md)
+
+View the full list of upcoming Boston-area startup events, updated weekly.
+
 ## Sources
 
 - **[StartupBos](https://www.startupbos.org/directory/events)** - Boston startup community events via the Wix Events Calendar widget
