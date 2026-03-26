@@ -10,13 +10,11 @@ from playwright.sync_api import Page, Browser
 from models import Event
 
 STARTUPBOS_URL = "https://www.startupbos.org/directory/events"
-EVENTS_CALENDAR_APP_ID = "133bb11e-b3db-7e3b-49bc-8aa16af72cac"
-EVENTS_CALENDAR_COMP_ID = "comp-k7v0es90"
 
 
-def _get_instance_token(browser: Browser) -> str:
-    """Load the StartupBos page and capture the Events Calendar instance token
-    from the Wix access-tokens API response."""
+def _discover_calendar_config(browser: Browser) -> tuple[str, str]:
+    """Load the StartupBos page, dynamically discover the Events Calendar
+    app ID and comp ID, and return (instance_token, comp_id)."""
     tokens = {}
 
     def on_response(response):
@@ -30,18 +28,43 @@ def _get_instance_token(browser: Browser) -> str:
     page.on("response", on_response)
     page.goto(STARTUPBOS_URL, wait_until="domcontentloaded", timeout=30000)
     page.wait_for_timeout(8000)
+    html = page.content()
     page.close()
 
+    # Find the app ID from the Wix widget registry in the page HTML
+    app_match = re.search(
+        r'"appDefinitionName"\s*:\s*"Events Calendar"[^}]*?"appDefinitionId"\s*:\s*"([^"]+)"',
+        html,
+    )
+    if not app_match:
+        app_match = re.search(
+            r'"appDefinitionId"\s*:\s*"([^"]+)"[^}]*?"appDefinitionName"\s*:\s*"Events Calendar"',
+            html,
+        )
+    app_id = app_match.group(1) if app_match else ""
+
+    # Find the comp ID from the iframe with title="Events Calendar"
+    soup = BeautifulSoup(html, "html.parser")
+    comp_id = ""
+    iframe = soup.find("iframe", attrs={"title": "Events Calendar"})
+    if iframe:
+        parent = iframe.find_parent("div", id=re.compile(r"^comp-"))
+        if parent:
+            comp_id = parent.get("id", "")
+
+    # Get instance token from the access-tokens response
     apps = tokens.get("data", {}).get("apps", {})
-    return apps.get(EVENTS_CALENDAR_APP_ID, {}).get("instance", "")
+    instance_token = apps.get(app_id, {}).get("instance", "") if app_id else ""
+
+    return instance_token, comp_id
 
 
-def _fetch_calendar_data(browser: Browser, instance_token: str) -> list[dict]:
+def _fetch_calendar_data(browser: Browser, instance_token: str, comp_id: str) -> list[dict]:
     """Load the Events Calendar widget and capture the data API response."""
     widget_url = (
         f"https://plugin.eventscalendar.co/widget.html"
         f"?instance={instance_token}"
-        f"&compId={EVENTS_CALENDAR_COMP_ID}"
+        f"&compId={comp_id}"
         f"&viewMode=site"
     )
 
@@ -144,14 +167,14 @@ def scrape_startupbos(browser: Browser) -> list[Event]:
     """Scrape events from startupbos.org using the Events Calendar API."""
     print(f"Scraping: {STARTUPBOS_URL}")
 
-    print("  Getting calendar instance token...")
-    instance_token = _get_instance_token(browser)
-    if not instance_token:
-        print("  Error: Could not get Events Calendar instance token")
+    print("  Discovering calendar configuration...")
+    instance_token, comp_id = _discover_calendar_config(browser)
+    if not instance_token or not comp_id:
+        print("  Error: Could not discover Events Calendar configuration")
         return []
 
     print("  Fetching calendar data...")
-    raw_events = _fetch_calendar_data(browser, instance_token)
+    raw_events = _fetch_calendar_data(browser, instance_token, comp_id)
     print(f"  Retrieved {len(raw_events)} total events from calendar")
 
     tomorrow = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
