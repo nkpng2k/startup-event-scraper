@@ -64,6 +64,8 @@ Events are saved to `events.json`. Each event includes:
 
 The scraper only returns events occurring within the next 2 weeks and automatically deduplicates events that appear across multiple sources.
 
+A formatted markdown table of upcoming events is published to [`events/EVENTS.md`](events/EVENTS.md) and updated weekly by a GitHub Action.
+
 ## Project Structure
 
 ```
