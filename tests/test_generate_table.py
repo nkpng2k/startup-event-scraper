@@ -120,6 +120,7 @@ class TestGenerateTable:
                 "description": "A test event",
                 "registration_link": "https://example.com",
                 "source": "https://luma.com/boston",
+                "topics": ["AI", "Tech"],
             }
         ]
         (tmp_path / "events.json").write_text(json.dumps(events))
@@ -129,6 +130,8 @@ class TestGenerateTable:
         assert "Test Event" in output
         assert "Free" in output
         assert "Luma Boston" in output
+        assert "AI, Tech" in output
+        assert "| Topics |" in output
 
     def test_no_events_file(self, tmp_path, capsys):
         generate_table(root=tmp_path)

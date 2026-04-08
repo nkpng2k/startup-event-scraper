@@ -26,7 +26,16 @@ def generate_table(root=None):
                 continue
         return datetime.max
 
-    events.sort(key=lambda e: parse_date(e.get("date", "")))
+    SOURCE_ORDER = {
+        "https://luma.com/boston": 0,
+        "https://luma.com/ai": 1,
+        "https://www.startupbos.org/directory/events": 2,
+    }
+    events.sort(key=lambda e: (
+        parse_date(e.get("date", "")).date(),
+        SOURCE_ORDER.get(e.get("source", ""), 99),
+        parse_date(e.get("date", "")),
+    ))
 
     def truncate_desc(desc):
         if not desc or len(desc) <= 100:
@@ -42,8 +51,8 @@ def generate_table(root=None):
         f"*{len(events)} events scraped from [StartupBos](https://www.startupbos.org/directory/events), "
         "[Luma Boston](https://luma.com/boston), and [Luma AI](https://luma.com/ai).*",
         "",
-        "| Date | Event | Description | Cost | Source |",
-        "|------|-------|-------------|------|--------|",
+        "| Date | Event | Description | Topics | Cost | Source |",
+        "|------|-------|-------------|--------|------|--------|",
     ]
 
     for e in events:
@@ -60,7 +69,8 @@ def generate_table(root=None):
         else:
             source = source_url
         desc = truncate_desc(e.get("description", "")).replace("|", "\\|").replace("\n", " ")
-        lines.append(f"| {e['date']} | {event_col} | {desc} | {e['cost']} | {source} |")
+        topics = ", ".join(e.get("topics", []))
+        lines.append(f"| {e['date']} | {event_col} | {desc} | {topics} | {e['cost']} | {source} |")
 
     output = project_root / "events" / "EVENTS.md"
     output.parent.mkdir(exist_ok=True)

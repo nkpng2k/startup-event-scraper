@@ -74,8 +74,10 @@ def _extract_text(node: dict) -> str:
     return " ".join(parts)
 
 
-def _fetch_event_description(event_slug: str) -> str:
-    """Fetch the full event description from the Luma event detail API."""
+def _fetch_event_details(event_slug: str) -> tuple[str, list[str]]:
+    """Fetch description and topics from the Luma event detail API."""
+    description = ""
+    topics = []
     try:
         data = _api_get(LUMA_EVENT_API_URL, {"event_api_id": event_slug})
         mirror = data.get("description_mirror")
@@ -85,10 +87,12 @@ def _fetch_event_description(event_slug: str) -> str:
                 text = _extract_text(node).strip()
                 if text:
                     paragraphs.append(text)
-            return "\n".join(paragraphs)
+            description = "\n".join(paragraphs)
+        categories = data.get("categories") or []
+        topics = [c["name"] for c in categories if c.get("name")]
     except Exception:
         pass
-    return ""
+    return description, topics
 
 
 def _format_date(entry: dict) -> str:
@@ -113,8 +117,9 @@ def _entry_to_event(entry: dict, source: str) -> Event:
     event_slug = event.get("url", "")
     reg_link = f"https://lu.ma/{event_slug}" if event_slug else ""
     description = ""
+    topics = []
     if event_slug:
-        description = _fetch_event_description(event_slug)
+        description, topics = _fetch_event_details(event_slug)
     if not description:
         description = event.get("description_short", "") or ""
 
@@ -138,6 +143,7 @@ def _entry_to_event(entry: dict, source: str) -> Event:
         description=description,
         registration_link=reg_link,
         source=source,
+        topics=topics,
     )
 
 

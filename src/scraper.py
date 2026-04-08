@@ -82,7 +82,16 @@ def main():
                 continue
         return datetime.max
 
-    all_events.sort(key=lambda e: parse_date(e.date))
+    SOURCE_ORDER = {
+        "https://luma.com/boston": 0,
+        "https://luma.com/ai": 1,
+        "https://www.startupbos.org/directory/events": 2,
+    }
+    all_events.sort(key=lambda e: (
+        parse_date(e.date).date(),
+        SOURCE_ORDER.get(e.source, 99),
+        parse_date(e.date),
+    ))
 
     # Output results
     output = [asdict(e) for e in all_events]
