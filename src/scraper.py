@@ -7,6 +7,7 @@ import argparse
 import json
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
@@ -81,11 +82,21 @@ def main():
                 continue
         return datetime.max
 
-    all_events.sort(key=lambda e: parse_date(e.date))
+    SOURCE_ORDER = {
+        "https://luma.com/boston": 0,
+        "https://luma.com/ai": 1,
+        "https://www.startupbos.org/directory/events": 2,
+    }
+    all_events.sort(key=lambda e: (
+        parse_date(e.date).date(),
+        SOURCE_ORDER.get(e.source, 99),
+        parse_date(e.date),
+    ))
 
     # Output results
     output = [asdict(e) for e in all_events]
-    output_file = "events.json"
+    project_root = Path(__file__).resolve().parent.parent
+    output_file = project_root / "events.json"
     with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
     print(f"\nSaved {len(all_events)} events to {output_file}")

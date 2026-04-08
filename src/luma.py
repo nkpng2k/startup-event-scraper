@@ -1,6 +1,7 @@
 """Luma event scrapers for luma.com/boston and luma.com/ai."""
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from urllib.request import urlopen, Request
 from urllib.parse import urlencode
@@ -15,6 +16,9 @@ LUMA_EVENT_API_URL = "https://api.lu.ma/event/get"
 BOSTON_LAT = 42.35843
 BOSTON_LNG = -71.05977
 ET_OFFSET = timezone(timedelta(hours=-4))
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0",
+}
 
 BOSTON_REGION_STATES = {"Massachusetts", "MA"}
 BOSTON_REGION_CITIES = {
@@ -29,12 +33,20 @@ BOSTON_REGION_CITIES = {
 }
 
 
+def _fetch_page_data(url: str) -> dict:
+    """Fetch the __NEXT_DATA__ JSON embedded in a Luma page."""
+    req = Request(url, headers=_HEADERS)
+    with urlopen(req, timeout=15) as resp:
+        html = resp.read().decode("utf-8")
+    match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html)
+    if not match:
+        raise ValueError(f"Could not find __NEXT_DATA__ in {url}")
+    return json.loads(match.group(1))["props"]["pageProps"]["initialData"]["data"]
+
+
 def _api_get(url: str, params: dict) -> dict:
     full_url = f"{url}?{urlencode(params)}"
-    req = Request(full_url, headers={
-        "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    })
+    req = Request(full_url, headers={**_HEADERS, "Accept": "application/json"})
     with urlopen(req, timeout=15) as resp:
         return json.loads(resp.read())
 
@@ -62,8 +74,10 @@ def _extract_text(node: dict) -> str:
     return " ".join(parts)
 
 
-def _fetch_event_description(event_slug: str) -> str:
-    """Fetch the full event description from the Luma event detail API."""
+def _fetch_event_details(event_slug: str) -> tuple[str, list[str]]:
+    """Fetch description and topics from the Luma event detail API."""
+    description = ""
+    topics = []
     try:
         data = _api_get(LUMA_EVENT_API_URL, {"event_api_id": event_slug})
         mirror = data.get("description_mirror")
@@ -73,10 +87,12 @@ def _fetch_event_description(event_slug: str) -> str:
                 text = _extract_text(node).strip()
                 if text:
                     paragraphs.append(text)
-            return "\n".join(paragraphs)
+            description = "\n".join(paragraphs)
+        categories = data.get("categories") or []
+        topics = [c["name"] for c in categories if c.get("name")]
     except Exception:
         pass
-    return ""
+    return description, topics
 
 
 def _format_date(entry: dict) -> str:
@@ -101,8 +117,9 @@ def _entry_to_event(entry: dict, source: str) -> Event:
     event_slug = event.get("url", "")
     reg_link = f"https://lu.ma/{event_slug}" if event_slug else ""
     description = ""
+    topics = []
     if event_slug:
-        description = _fetch_event_description(event_slug)
+        description, topics = _fetch_event_details(event_slug)
     if not description:
         description = event.get("description_short", "") or ""
 
@@ -126,6 +143,7 @@ def _entry_to_event(entry: dict, source: str) -> Event:
         description=description,
         registration_link=reg_link,
         source=source,
+        topics=topics,
     )
 
 
@@ -177,10 +195,20 @@ def scrape_luma_boston() -> list[Event]:
     """Scrape events from luma.com/boston using the Luma public API."""
     print(f"Scraping: {LUMA_BOSTON_URL}")
 
-    entries = _fetch_paginated({"city_slug": "boston", "pagination_limit": "50"})
+    page_data = _fetch_page_data(LUMA_BOSTON_URL)
+    place_api_id = page_data["place"]["api_id"]
+
+    data = _api_get(LUMA_API_URL, {
+        "discover_place_api_id": place_api_id,
+        "pagination_limit": "50",
+    })
+    entries = data.get("entries", [])
     print(f"  Retrieved {len(entries)} events from Luma Boston")
 
-    filtered = _dedup_entries([e for e in entries if _is_within_2_weeks(e)])
+    filtered = _dedup_entries([
+        e for e in entries
+        if _is_within_2_weeks(e)
+    ])
     filtered.sort(key=lambda e: e["event"].get("start_at", ""))
     print(f"  {len(filtered)} unique events in the next 2 weeks")
 
@@ -193,13 +221,13 @@ def scrape_luma_ai() -> list[Event]:
     """Scrape AI events near Boston from luma.com/ai using the Luma public API."""
     print(f"Scraping: {LUMA_AI_URL} (filtered to Boston area)")
 
-    params = {
+    data = _api_get(LUMA_API_URL, {
         "slug": "ai",
         "latitude": str(BOSTON_LAT),
         "longitude": str(BOSTON_LNG),
         "pagination_limit": "50",
-    }
-    entries = _fetch_paginated(params)
+    })
+    entries = data.get("entries", [])
     print(f"  Retrieved {len(entries)} AI events near Boston coordinates")
 
     filtered = _dedup_entries([
