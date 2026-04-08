@@ -180,9 +180,12 @@ def scrape_luma_boston() -> list[Event]:
     entries = _fetch_paginated({"city_slug": "boston", "pagination_limit": "50"})
     print(f"  Retrieved {len(entries)} events from Luma Boston")
 
-    filtered = _dedup_entries([e for e in entries if _is_within_2_weeks(e)])
+    filtered = _dedup_entries([
+        e for e in entries
+        if _is_within_2_weeks(e) and _is_boston_area(e)
+    ])
     filtered.sort(key=lambda e: e["event"].get("start_at", ""))
-    print(f"  {len(filtered)} unique events in the next 2 weeks")
+    print(f"  {len(filtered)} unique Boston-area events in the next 2 weeks")
 
     events = [_entry_to_event(e, LUMA_BOSTON_URL) for e in filtered]
     print(f"  Returning {len(events)} events")

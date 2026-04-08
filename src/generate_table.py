@@ -6,8 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 
-def generate_table():
-    events_file = Path("events.json")
+def generate_table(root=None):
+    project_root = Path(root) if root else Path(__file__).resolve().parent.parent
+    events_file = project_root / "events.json"
     if not events_file.exists():
         print("events.json not found")
         return
@@ -61,7 +62,7 @@ def generate_table():
         desc = truncate_desc(e.get("description", "")).replace("|", "\\|").replace("\n", " ")
         lines.append(f"| {e['date']} | {event_col} | {desc} | {e['cost']} | {source} |")
 
-    output = Path("events/EVENTS.md")
+    output = project_root / "events" / "EVENTS.md"
     output.parent.mkdir(exist_ok=True)
     output.write_text("\n".join(lines) + "\n")
     print(f"Generated events/EVENTS.md with {len(events)} events")

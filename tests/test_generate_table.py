@@ -111,8 +111,7 @@ class TestParseDate:
 
 
 class TestGenerateTable:
-    def test_generates_file(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
+    def test_generates_file(self, tmp_path):
         events = [
             {
                 "name": "Test Event",
@@ -125,25 +124,22 @@ class TestGenerateTable:
         ]
         (tmp_path / "events.json").write_text(json.dumps(events))
         (tmp_path / "events").mkdir()
-        generate_table()
+        generate_table(root=tmp_path)
         output = (tmp_path / "events" / "EVENTS.md").read_text()
         assert "Test Event" in output
         assert "Free" in output
         assert "Luma Boston" in output
 
-    def test_no_events_file(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.chdir(tmp_path)
-        generate_table()
+    def test_no_events_file(self, tmp_path, capsys):
+        generate_table(root=tmp_path)
         assert "not found" in capsys.readouterr().out
 
-    def test_empty_events(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.chdir(tmp_path)
+    def test_empty_events(self, tmp_path, capsys):
         (tmp_path / "events.json").write_text("[]")
-        generate_table()
+        generate_table(root=tmp_path)
         assert "No events found" in capsys.readouterr().out
 
-    def test_pipe_in_name_escaped(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
+    def test_pipe_in_name_escaped(self, tmp_path):
         events = [
             {
                 "name": "AI | Meetup",
@@ -156,6 +152,6 @@ class TestGenerateTable:
         ]
         (tmp_path / "events.json").write_text(json.dumps(events))
         (tmp_path / "events").mkdir()
-        generate_table()
+        generate_table(root=tmp_path)
         output = (tmp_path / "events" / "EVENTS.md").read_text()
         assert "AI \\| Meetup" in output
